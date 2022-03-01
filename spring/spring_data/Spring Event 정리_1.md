@@ -11,7 +11,7 @@ Spring data의 save동작 시, AbstractAggregateRoot를 상속하는 도메인 �
 
 #### 1) 계정 애그리거트 이벤트 발행
 
-```
+```java
 @Getter
 @Entity
 @Table(name = "account_info")
@@ -32,7 +32,7 @@ public class Account extends AbstractAggregateRoot<Account> implements Serializa
 
 #### 2) 비밀번호 변경 이벤트
 
-```
+```java
 @Getter
 public class PasswordChangedEvent {
     private CustomerId customerId;
@@ -47,7 +47,7 @@ public class PasswordChangedEvent {
 
 #### 계정 생성 이벤트 핸들러
 
-```
+```java
 @RequiredArgsConstructor
 public class AccountHistoryEventHandler {
 
@@ -62,7 +62,7 @@ public class AccountHistoryEventHandler {
 
 #### spring data의 save() Code
 
-```
+```java
 // 개인정보 변경(비밀번호변경)
 @Transactional
 public void updatePassword(String customerId, UpdatePasswordCommand updatePasswordCommand) throws Exception {
@@ -89,7 +89,7 @@ RepositoryProxyPostProcessor는 CRUDRepository의 save, delete 메서드를 인�
 
 EventPublishingRepositoryProxyPostProcessor.class의 publishEventFrom(aggregateRoot의 registerEvent()에서 등록한 이벤트가 발행되는 곳입니다)
 
-```
+```java
 public void publishEventsFrom(@Nullable Object object, ApplicationEventPublisher publisher) {
 
   if (object == null) {
@@ -112,7 +112,7 @@ public void publishEventsFrom(@Nullable Object object, ApplicationEventPublisher
 **참고**  
 DomainEvent는 AggregateRoot에 annotated되어 있습니다.
 
-```
+```java
 package org.springframework.data.domain;
 
 ... 생략
