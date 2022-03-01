@@ -31,7 +31,7 @@ KMS키를 사용해 데이터를 암복호화 할 수 있습니다. 일반적으
 ![image](../img/generate_data_key.png)
 
 
-aws-encryption-sdk-java-2.3.3-sources.jar 참조
+**aws-encryption-sdk-java-2.3.3-sources.jar 참조**
 
 `com.amazonaws.encryptionsdk.kms.KmsMasterKey.class`
 데이터 키 생성 로직
@@ -51,18 +51,23 @@ public DataKey<KmsMasterKey> generateDataKey(
                       .withKeyId(getKeyId())
                       .withNumberOfBytes(algorithm.getDataKeyLength())
                       .withEncryptionContext(encryptionContext)
-                      .withGrantTokens(grantTokens_)));
+                      .withGrantTokens(grantTokens_)
+		)
+	   );
+		      
   final byte[] rawKey = new byte[algorithm.getDataKeyLength()];
   gdkResult.getPlaintext().get(rawKey);
+  
   if (gdkResult.getPlaintext().remaining() > 0) {
     throw new IllegalStateException("Recieved an unexpected number of bytes from KMS");
   }
+  
   final byte[] encryptedKey = new byte[gdkResult.getCiphertextBlob().remaining()];
   gdkResult.getCiphertextBlob().get(encryptedKey);
 
   final SecretKeySpec key = new SecretKeySpec(rawKey, algorithm.getDataKeyAlgo());
-  return new DataKey<>(
-      key, encryptedKey, gdkResult.getKeyId().getBytes(StandardCharsets.UTF_8), this);
+  
+  return new DataKey<>(key, encryptedKey, gdkResult.getKeyId().getBytes(StandardCharsets.UTF_8), this);
 }
 
 ```
@@ -88,6 +93,7 @@ AWS KMS는 데이터 키를 사용하여 데이터를 암호화할 수 없습니
 자세한 Error 내용은 하기 URL 참고 부탁드립니다.
 [Encrypt - AWS Key Management Service](https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html)
 
+**aws-encryption-sdk-java-2.3.3-sources.jar 참조**
 데이터 키로 데이터 암호화는  `AwsCrypto.class encryptData()`에서 수행됩니다.
 
 ```java
@@ -97,23 +103,22 @@ public CryptoResult<byte[], ?> encryptData(
     CryptoMaterialsManager materialsManager,
     final byte[] plaintext,
     final Map<String, String> encryptionContext) {
-  EncryptionMaterialsRequest request =
-      EncryptionMaterialsRequest.newBuilder()
+  
+  EncryptionMaterialsRequest request = EncryptionMaterialsRequest.newBuilder()
           .setContext(encryptionContext)
           .setRequestedAlgorithm(getEncryptionAlgorithm())
           .setPlaintext(plaintext)
           .setCommitmentPolicy(commitmentPolicy_)
           .build();
-	// 1. encryptionMaterials는 masterKey, plaintext key, encrypted key 모두 가지고 있습니다. 해당 키들을 활용하여 데이터를 암호화합니다.
-  EncryptionMaterials encryptionMaterials =
-      checkMaxEncryptedDataKeys(checkAlgorithm(materialsManager.getMaterialsForEncrypt(request)));
-  final MessageCryptoHandler cryptoHandler =
-      new EncryptionHandler(getEncryptionFrameSize(), encryptionMaterials, commitmentPolicy_);
+
+  // encryptionMaterials는 masterKey, plaintext key, encrypted key 모두 가지고 있습니다. 해당 키들을 활용하여 데이터를 암호화합니다.
+  EncryptionMaterials encryptionMaterials = checkMaxEncryptedDataKeys(checkAlgorithm(materialsManager.getMaterialsForEncrypt(request)));
+  
+  final MessageCryptoHandler cryptoHandler = new EncryptionHandler(getEncryptionFrameSize(), encryptionMaterials, commitmentPolicy_);
 
   final int outSizeEstimate = cryptoHandler.estimateOutputSize(plaintext.length);
   final byte[] out = new byte[outSizeEstimate];
-  int outLen =
-      cryptoHandler.processBytes(plaintext, 0, plaintext.length, out, 0).getBytesWritten();
+  int outLen = cryptoHandler.processBytes(plaintext, 0, plaintext.length, out, 0).getBytesWritten();
   outLen += cryptoHandler.doFinal(out, outLen);
 
   final byte[] outBytes = Utils.truncate(out, outLen);
@@ -146,11 +151,14 @@ public CryptoResult<byte[], ?> encryptData(
 자세한 Error 내용은 하기 URL 참고 부탁드립니다.
 [Decrypt - AWS Key Management Service](https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html)
 
+**aws-encryption-sdk-java-2.3.3-sources.jar 참조**
 데이터 복호화는 ` AwsCrypto.class decryptData()`에서 수행됩니다.
 
 ```java
 public CryptoResult<byte[], ?> decryptData(
-    final CryptoMaterialsManager materialsManager, final ParsedCiphertext ciphertext) {
+  final CryptoMaterialsManager materialsManager, 
+  final ParsedCiphertext ciphertext) {
+  
   Utils.assertNonNull(materialsManager, "materialsManager");
 
   final MessageCryptoHandler cryptoHandler =
@@ -165,11 +173,10 @@ public CryptoResult<byte[], ?> decryptData(
   final int contentLen = ciphertextBytes.length - ciphertext.getOffset();
   final int outSizeEstimate = cryptoHandler.estimateOutputSize(contentLen);
   final byte[] out = new byte[outSizeEstimate];
-  final ProcessingSummary processed =
-      cryptoHandler.processBytes(ciphertextBytes, ciphertext.getOffset(), contentLen, out, 0);
+  final ProcessingSummary processed = cryptoHandler.processBytes(ciphertextBytes, ciphertext.getOffset(), contentLen, out, 0);
+  
   if (processed.getBytesProcessed() != contentLen) {
-    throw new BadCiphertextException(
-        "Unable to process entire ciphertext. May have trailing data.");
+    throw new BadCiphertextException("Unable to process entire ciphertext. May have trailing data.");
   }
   int outLen = processed.getBytesWritten();
   outLen += cryptoHandler.doFinal(out, outLen);
@@ -206,23 +213,23 @@ public class AwsKmsProvider {
 
 	@PostConstruct 
 	public void init() {
-    	// 1. Instantiate the SDK
+    	// 1. Instantiate the SDK, awsCrypto은 데이터 암복호화를 수행합니다.
     	this.awsCrypto = AwsCrypto.builder()
-            .withCommitmentPolicy(CommitmentPolicy.Req				uireEncryptRequireDecrypt)
-				// 암호화 알고리즘 설정
-            .withEncryptionAlgorithm(CryptoAlgorithm.A		LG_AES_256_GCM_HKDF_SHA512_COMMIT_KEY).build();
+		.withCommitmentPolicy(CommitmentPolicy
+		.RequireEncryptRequireDecrypt)
+            	.withEncryptionAlgorithm(CryptoAlgorithm.ALG_AES_256_GCM_HKDF_SHA512_COMMIT_KEY) // 암호화 알고리즘 설정
+		.build();
 	  
     	// 2. KMS Key 설정
-    	KmsMasterKeyProvider keyProvider = 	     	KmsMasterKeyProvider
-.builder()
-.buildStrict(this.kmsEncryptionKeyArn);
+    	KmsMasterKeyProvider keyProvider = KmsMasterKeyProvider.builder()
+		.buildStrict(this.kmsEncryptionKeyArn);
 
-    // 3. Create a key material cache.
-    CryptoMaterialsCache cache = new 	LocalCryptoMaterialsCache(100);
+    	// 3. Create a key material cache.
+    	CryptoMaterialsCache cache = new LocalCryptoMaterialsCache(100);
 
-    // 4. Create a caching CMM.
-    // KMS Key를 저장하여 호출 횟수를 줄여주고 비용/성능 관리를 도와줍니다.
-    this.cachingCmm = CachingCryptoMaterialsManager
+    	// 4. Create a caching CMM.
+    	// KMS Key를 저장하여 호출 횟수를 줄여주고 비용/성능 관리를 도와줍니다.
+    	this.cachingCmm = CachingCryptoMaterialsManager
             .newBuilder()
             .withMasterKeyProvider(keyProvider)
             .withCache(cache) // LRU캐
@@ -240,12 +247,10 @@ public String encrypt(String plainText) {
     byte[] plainBytes = plainText.getBytes(StandardCharsets.UTF_8);
     byte[] encryptedBytes = awsCrypto.encryptData(cachingCmm, plainBytes).getResult();
     String encryptText = Base64.encodeAsString(encryptedBytes);
-    log.info("##########[Before Encrypted]: {}, [After Encrypted Text]: {}" , plainText, encryptText);
     return encryptText;
 }
 
 ```
-
 
 ### KMS 복호화
 ```java
@@ -254,7 +259,6 @@ public String decrypt(String encryptText) {
     byte[] encryptBytes = Base64.decode(encryptText);
     byte[] decryptedBytes = awsCrypto.decryptData(cachingCmm, encryptBytes).getResult();
     String decryptText = new String(decryptedBytes, StandardCharsets.UTF_8);
-    log.info("##########[Before Decryptted]: {}, [After Encrypted Text]: {}" , encryptText, decryptText);
     return decryptText;
 }
 
