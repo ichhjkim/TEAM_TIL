@@ -1,0 +1,37 @@
+# 필터(filter)
+
+필터는 J2EE 표준 스펙 기능으로 디스패처 서블릿에 요청이 전달되기 전/후에 URL 패턴에 맞는 모든 요청에 대해 부가 작업을 할 수 있는 기능을 제공합니다.
+
+**디스패처 서블릿
+스프링의 가장 앞단에 존재하는 프론트 컨트롤러, 필터는 **스프링 범위 밖에서 처리됩니다.**
+즉, 스프링 컨테이너가 아닌 톰캣과 같은 웹 컨테이너에 의해 관리가 됩니다.
+(단, 스프링 빈으로 등록은 됩니다.)
+
+## 필터의 메소드
+
+필터를 추가 하기 위해서는 javax.servlet의 filter interface를 구현해야합니다.
+
+```java
+public interface Filter {
+  public default void init(FilterConfig filterConfig) throws ServletException {}
+  public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+  throws IOException, ServletException;
+  public default void destroy(){}
+ }
+ ```
+ 
+ ### init method
+ 필터 객체를 **초기화**, 서비스에 추가하기 위한 메서드 입니다.
+ `웹 컨테이너`가 단 한번만 호출하고, 필터 객체를 초기화 한 후 이후의 요청들은 doFilter을 통해 처리됩니다.
+ 
+ ### doFilter method
+ url-pattern에 맞는 모든 HTTP요청이 디스패치 서블릿으로 전달되기 전에 웹 컨테이너에 의해 실행되는 메소드 입니다.
+ doFilter 메서드의 파라미터를 보시면 Filterchain이 존재하는 것을 알 수 있습니다.
+ FilterChain 의 doFilter를 통해 다음 대상으로 요청을 전달하게 됩니다.
+ 
+ chain.doFilter() 앞/뒤로 필요한 처리 로직을 넣어주어 동작할 수 있게 합니다.
+ 
+ ### destory 메서드
+ 필터 객체를 서비스에서 제거하고 사용하는 자원을 반환하기 위한 메소드 입니다.
+ init메서드와 마찬가지로 한번만 호출되며 이후에는 doFilter를 타지 않게 됩니다.
+ 
