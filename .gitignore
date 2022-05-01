@@ -1,4 +1,17 @@
+#C#
 */bin
 */obj
+
+#MAC
 .DS_Store
+
+#IntelliJ
 .idea
+*.iml
+*.iws
+
+#Eclipse
+.classpath
+.project
+.settings/
+
